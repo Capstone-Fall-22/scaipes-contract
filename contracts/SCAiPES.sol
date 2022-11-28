@@ -3,10 +3,11 @@ pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract SCAiPES is ERC721, ERC721Enumerable, Ownable {
+contract SCAiPES is ERC721, ERC721Enumerable, Ownable, Pausable {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
 
@@ -18,7 +19,7 @@ contract SCAiPES is ERC721, ERC721Enumerable, Ownable {
     bool public publicMintOpen = true;
     event mint(uint256 tokenId, address minter, uint256 burnedTokenToCopy);
     
-    uint256 burnerPayout = 0.5 * price;
+    uint256 burnerPayout = 0.005 ether;
     uint256[] burnedTokenIds;
     mapping(uint256 => address) public burnerAddresses;
     event burn(uint256 tokenId, address burner);
@@ -28,17 +29,17 @@ contract SCAiPES is ERC721, ERC721Enumerable, Ownable {
         _tokenIdCounter.increment();
     }
   
-    function setBaseURI(string memory _baseURI) public onlyOwner {
-        baseURI = _baseURI;
+    function setBaseURI(string memory newBaseURI) public onlyOwner {
+        baseURI = newBaseURI;
     }
 
-    function _baseURI() internal pure override returns (string memory) {        
+    function _baseURI() internal view override returns (string memory) {        
         return baseURI;
     }
 
     // Open or close minting
-    function editMintWindows(bool _publicMintOpen) external onlyOwner{
-        publicMintOpen = _publicMintOpen;
+    function editMintWindows(bool open) external onlyOwner{
+        publicMintOpen = open;
     }
 
     // Mint a new token
@@ -60,7 +61,7 @@ contract SCAiPES is ERC721, ERC721Enumerable, Ownable {
 
         // If user is minting a copy of a burned token, send the burnPayout amount to the original burner
         if(burnedTokenToCopy!= 0){
-            payable(burnerAddresses[burnedTokenToCopy]).transfer(burnPayout);
+            payable(burnerAddresses[burnedTokenToCopy]).transfer(burnerPayout);
         }
 
         // Emit mint event so backend can generate metadata
@@ -105,19 +106,18 @@ contract SCAiPES is ERC721, ERC721Enumerable, Ownable {
     }
 
     // Withdraw ETH earned from minting
-    function withdraw(address _addr) external onlyOwner{
+    function withdraw(address addr) external onlyOwner{
         uint256 balance = address(this).balance;
-        payable(_addr).transfer(balance);
+        payable(addr).transfer(balance);
     }
 
     // The following functions are overrides required by Solidity.
 
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId)
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize)
         internal
-        whenNotPaused
         override(ERC721, ERC721Enumerable)
     {
-        super._beforeTokenTransfer(from, to, tokenId);
+        super._beforeTokenTransfer(from, to, tokenId, batchSize);
     }
 
 
